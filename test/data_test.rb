@@ -20,17 +20,29 @@ require './test/test_helper'
 class DataTest < Tests
   def test_data_with_matrix
     clusterer, data_set = Instance.two_clusters_4_items_with_matrix
+    item_id = data_set.data_items.first[2]
 
-    # make one duration_from_to_depot incorrect
+    # make one duration_from_to_depot incorrect (too much values)
     data_set.data_items.first[4][:duration_from_and_to_depot] = [1, 2, 3]
-
     assert_raises ArgumentError do
       clusterer.build(data_set, :visits)
     end
 
-    # back to normal duration_from_and_to_depot
-    data_set.data_items.first[4][:duration_from_and_to_depot] = [1, 2]
+    # make one duration_from_to_depot incorrect (too few values)
+    data_set.data_items.first[4][:duration_from_and_to_depot] = [1]
     clusterer.build(data_set, :visits)
+
+    item = data_set.data_items.find { |i| i[2] == item_id }
+
+    item[4][:duration_from_and_to_depot] = [1]
+    clusterer.build(data_set, :visits)
+    # Verify that duration_from_and_to_depot is completed with 0s if too short
+    assert_equal [1, 0], item[4][:duration_from_and_to_depot], "duration_from_and_to_depot should be completed with 0s if too short"
+
+    # Verify that duration_from_and_to_depot has not been changed
+    item[4][:duration_from_and_to_depot] = [1, 2]
+    clusterer.build(data_set, :visits)
+    assert_equal [1, 2], item[4][:duration_from_and_to_depot], "duration_from_and_to_depot should be unchanged if correct"
 
     data_set.data_items.first[4].delete(:matrix_index)
     assert_raises ArgumentError do
