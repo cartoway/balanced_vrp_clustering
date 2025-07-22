@@ -91,12 +91,20 @@ module Ai4r
           raise ArgumentError, 'Distance matrix provided: matrix index should be provided for all vehicles and items'
         end
 
-        if data_set.data_items.any?{ |item| item[4][:duration_from_and_to_depot]&.size != @vehicles.size }
-          raise ArgumentError, 'duration_from_and_to_depot should be provided for all data items'
-        end
-
-        if data_set.data_items.any?{ |item| !(item[0] && item[1]) }
-          raise ArgumentError, 'Location info (lattitude and longitude) should be provided for all items'
+        data_set.data_items.each do |item|
+          if item[4][:duration_from_and_to_depot]&.size.to_i > @vehicles.size
+            raise ArgumentError, "duration_from_and_to_depot size (#{item[4][:duration_from_and_to_depot].size}) is greater than vehicles size (#{@vehicles.size}) for item #{item[2]}"
+          end
+          if !item[4].key?(:duration_from_and_to_depot) || item[4][:duration_from_and_to_depot].nil? || item[4][:duration_from_and_to_depot].size != @vehicles.size
+            msg = "[WARNING] duration_from_and_to_depot was missing or incomplete for item #{item[2]}. It has been initialized or completed with 0s."
+            if defined?(@logger) && @logger
+              @logger.warn msg
+            else
+              warn msg
+            end
+            item[4][:duration_from_and_to_depot] ||= []
+            item[4][:duration_from_and_to_depot].fill(0, item[4][:duration_from_and_to_depot].size...@vehicles.size)
+          end
         end
 
         unless @on_empty == 'closest'
