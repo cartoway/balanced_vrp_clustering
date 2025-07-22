@@ -12,7 +12,11 @@ Gem::Specification.new do |s|
   ]
   s.require_paths = %w[lib]
 
-  s.add_dependency "color-generator" # for geojson debug output
-  s.add_dependency "geojson2image"   # for geojson debug output
-  s.add_dependency "awesome_print"   # for geojson debug output
+  s.add_dependency 'ai4r'
+  s.add_dependency 'activesupport'
+  s.add_dependency 'rake'
+
+  s.add_dependency 'color-generator' # for geojson debug output
+  s.add_dependency 'geojson2image'   # for geojson debug output
+  s.add_dependency 'awesome_print'   # for geojson debug output
 end

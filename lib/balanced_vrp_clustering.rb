@@ -678,7 +678,7 @@ module Ai4r
       end
 
       def manage_empty_clusters
-        return unless has_empty_cluster?
+        return unless @clusters.any? { |cluster| cluster.data_items.empty? }
 
         @clusters.each_with_index{ |empty_cluster, ind|
           next unless empty_cluster.data_items.empty?

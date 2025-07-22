@@ -1,5 +1,5 @@
 source 'https://rubygems.org'
-ruby '~> 3.0'
+ruby '~> 3.1'
 
 gemspec
 
@@ -9,7 +9,7 @@ gem 'rake'
 
 gem 'activesupport'
 
-gem 'ai4r'
+gem 'ai4r', git: 'https://github.com/SergioFierens/ai4r.git', ref: '9583d6d576c2a7f73cd3bbc2ca8d34221957d4ac'
 
 group :development, :test do
   gem 'benchmark-ips' # to in-place benchmark of different implementations
