@@ -3,7 +3,7 @@ Gem::Specification.new do |s|
   s.version = '0.2.0'
   s.date = '2021-03-09'
   s.summary = 'Gem for clustering points of a given VRP.'
-  s.authors = 'Mapotempo'
+  s.authors = 'Cartoway'
   s.files = %w[
     lib/balanced_vrp_clustering.rb
     lib/helpers/helper.rb
