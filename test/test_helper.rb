@@ -22,6 +22,16 @@ $VERBOSE = nil if $VERBOSE && ENV['APP_ENV'] == 'test' # for suppressing the war
 require './lib/balanced_vrp_clustering'
 $VERBOSE = ORIGINAL_VERBOSITY
 
+unless ENV['BVRP_SKIP_NATIVE_COMPILE'] == '1'
+  native_so = File.expand_path(
+    "../lib/balanced_vrp_clustering_native.#{RbConfig::CONFIG['DLEXT']}",
+    __dir__
+  )
+  unless File.exist?(native_so)
+    system('bundle', 'exec', 'rake', 'native:compile', chdir: File.expand_path('..', __dir__))
+  end
+end
+
 require 'byebug'
 require 'find'
 require 'minitest/reporters'

@@ -1,0 +1,33 @@
+# Copyright © Cartoway
+#
+# This file is part of balanced_vrp_clustering.
+#
+# Cartoway balanced_vrp_clustering is free software. You can redistribute it and/or
+# modify since you respect the terms of the GNU Affero General
+# Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+#
+# Cartoway Planner is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the Licenses for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with Cartoway Planner. If not, see:
+# <http://www.gnu.org/licenses/agpl.html>
+#
+
+[package]
+name = "balanced_vrp_clustering_native"
+version = "0.3.0"
+edition = "2021"
+description = "Ruby native extension for balanced VRP clustering"
+license = "AGPL-3.0-or-later"
+
+[lib]
+crate-type = ["cdylib"]
+name = "balanced_vrp_clustering_native"
+
+[dependencies]
+balanced_vrp_clustering_core = { path = "../balanced_vrp_clustering_core" }
+magnus = { version = "0.7" }
+serde_json = "1"

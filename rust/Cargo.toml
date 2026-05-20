@@ -1,0 +1,3 @@
+[workspace]
+members = ["balanced_vrp_clustering_core", "balanced_vrp_clustering_native"]
+resolver = "2"

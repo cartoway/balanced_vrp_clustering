@@ -131,7 +131,7 @@ class ClusteringTest < Tests
       while data_set.data_items.size > 100
         number_of_items_expected = data_set.data_items.size
 
-        clusterer.build(data_set, options[:cut_symbol], {}, ratio, options)
+        clusterer.build(data_set, options[:cut_symbol], {}, ratio, options.merge(engine: :ruby))
 
         repartition = clusterer.clusters.collect{ |c| c.data_items.size }
         puts "#{number_of_items_expected} items divided in into #{repartition}"

@@ -1,0 +1,128 @@
+{
+  "name": "tiny",
+  "seed": 42424,
+  "cut_symbol": "visits",
+  "cut_ratio": 1.0,
+  "max_iterations": 300,
+  "vehicles": [
+    {
+      "id": [
+        "vehicle_0"
+      ],
+      "depot": {
+        "coordinates": [
+          45.604784,
+          4.758965
+        ]
+      },
+      "capacities": {
+        "visits": 6.0
+      },
+      "skills": [],
+      "day_skills": [
+        "all_days"
+      ],
+      "duration": 0.0,
+      "total_work_days": 1,
+      "vehicle_count": 1
+    },
+    {
+      "id": [
+        "vehicle_1"
+      ],
+      "depot": {
+        "coordinates": [
+          45.576412,
+          4.805614
+        ]
+      },
+      "capacities": {
+        "visits": 6.0
+      },
+      "skills": [],
+      "day_skills": [
+        "all_days"
+      ],
+      "duration": 0.0,
+      "total_work_days": 1,
+      "vehicle_count": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "point_1",
+      "lat": 45.604784,
+      "lon": 4.758965,
+      "quantities": {
+        "visits": 1.0
+      },
+      "v_id": [],
+      "skills": [],
+      "day_skills": [
+        "all_days"
+      ],
+      "matrix_index": null,
+      "duration_from_and_to_depot": [
+        0.0,
+        4814.68
+      ]
+    },
+    {
+      "id": "point_2",
+      "lat": 45.344334,
+      "lon": 4.817731,
+      "quantities": {
+        "visits": 1.0
+      },
+      "v_id": [],
+      "skills": [],
+      "day_skills": [
+        "all_days"
+      ],
+      "matrix_index": null,
+      "duration_from_and_to_depot": [
+        29354.21,
+        25852.47
+      ]
+    },
+    {
+      "id": "point_3",
+      "lat": 45.576412,
+      "lon": 4.805614,
+      "quantities": {
+        "visits": 1.0
+      },
+      "v_id": [],
+      "skills": [],
+      "day_skills": [
+        "all_days"
+      ],
+      "matrix_index": null,
+      "duration_from_and_to_depot": [
+        4814.68,
+        0.0
+      ]
+    },
+    {
+      "id": "point_4",
+      "lat": 45.258324,
+      "lon": 4.687322,
+      "quantities": {
+        "visits": 1.0
+      },
+      "v_id": [],
+      "skills": [],
+      "day_skills": [
+        "all_days"
+      ],
+      "matrix_index": null,
+      "duration_from_and_to_depot": [
+        38972.24,
+        36596.43
+      ]
+    }
+  ],
+  "distance_matrix": null,
+  "centroid_indices": [],
+  "related_item_indices": {}
+}
