@@ -43,6 +43,32 @@ class FfiEngineTest < Tests
     assert_equal expected, actual
   end
 
+  def test_build_tolerates_nil_numeric_fields_in_items
+    skip 'Run: bundle exec rake native:compile' unless Ai4r::Clusterers::BalancedVRPClusteringRustEngine.available?
+
+    clusterer, data_set = Instance.two_clusters_4_items
+    item = data_set.data_items.first
+    item[0] = nil
+    item[1] = nil
+    item[4][:duration_from_and_to_depot] = [nil, 10.0]
+
+    srand 42_424
+    clusterer.build(data_set, :visits, {}, 1.0, { seed: 42_424 })
+
+    assert_equal 4, clusterer.clusters.sum { |c| c.data_items.size }
+  end
+
+  def test_output_cluster_stats_after_rust_build
+    skip 'Run: bundle exec rake native:compile' unless Ai4r::Clusterers::BalancedVRPClusteringRustEngine.available?
+
+    clusterer, data_set = Instance.two_clusters_4_items
+    clusterer.logger = Logger.new(IO::NULL)
+    srand 42_424
+    clusterer.build(data_set, :visits, {}, 1.0, { seed: 42_424 })
+
+    Helper.output_cluster_stats(clusterer.instance_variable_get(:@centroids), clusterer.logger)
+  end
+
   def test_build_ruby_engine_explicit
     clusterer, data_set = Instance.two_clusters_4_items
     srand 42_424

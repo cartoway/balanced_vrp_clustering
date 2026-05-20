@@ -35,6 +35,59 @@ where
     }
 }
 
+fn deserialize_f64<'de, D>(deserializer: D) -> Result<f64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(Option::<f64>::deserialize(deserializer)?.unwrap_or(0.0))
+}
+
+fn deserialize_f64_default_one<'de, D>(deserializer: D) -> Result<f64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(Option::<f64>::deserialize(deserializer)?.unwrap_or(1.0))
+}
+
+fn deserialize_vec_f64<'de, D>(deserializer: D) -> Result<Vec<f64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw: Vec<Option<f64>> = Vec::deserialize(deserializer)?;
+    Ok(raw.into_iter().map(|v| v.unwrap_or(0.0)).collect())
+}
+
+fn deserialize_option_vec_f64<'de, D>(deserializer: D) -> Result<Option<Vec<f64>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw: Option<Vec<Option<f64>>> = Option::deserialize(deserializer)?;
+    Ok(raw.map(|values| values.into_iter().map(|v| v.unwrap_or(0.0)).collect()))
+}
+
+fn deserialize_f64_map<'de, D>(deserializer: D) -> Result<HashMap<String, f64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw: HashMap<String, Option<f64>> = HashMap::deserialize(deserializer)?;
+    Ok(raw
+        .into_iter()
+        .map(|(k, v)| (k, v.unwrap_or(0.0)))
+        .collect())
+}
+
+fn deserialize_distance_matrix<'de, D>(deserializer: D) -> Result<Option<Vec<Vec<f64>>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw: Option<Vec<Vec<Option<f64>>>> = Option::deserialize(deserializer)?;
+    Ok(raw.map(|rows| {
+        rows.into_iter()
+            .map(|row| row.into_iter().map(|v| v.unwrap_or(0.0)).collect())
+            .collect()
+    }))
+}
+
 pub const INCOMPATIBILITY_DISTANCE_PENALTY: f64 = 4_294_967_296.0; // 2^32
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -42,11 +95,13 @@ pub struct InputConfig {
     pub name: Option<String>,
     pub seed: u64,
     pub cut_symbol: Option<String>,
+    #[serde(deserialize_with = "deserialize_f64")]
     pub cut_ratio: f64,
     #[serde(deserialize_with = "deserialize_usize_from_number")]
     pub max_iterations: usize,
     pub vehicles: Vec<VehicleInput>,
     pub items: Vec<ItemInput>,
+    #[serde(default, deserialize_with = "deserialize_distance_matrix")]
     pub distance_matrix: Option<Vec<Vec<f64>>>,
     pub centroid_indices: Vec<usize>,
     #[serde(default)]
@@ -57,17 +112,17 @@ pub struct InputConfig {
 pub struct VehicleInput {
     pub id: Vec<String>,
     pub depot: DepotInput,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_f64_map")]
     pub capacities: HashMap<String, f64>,
     #[serde(default)]
     pub skills: Vec<String>,
     #[serde(default)]
     pub day_skills: Vec<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_f64")]
     pub duration: f64,
-    #[serde(default = "default_one")]
+    #[serde(default = "default_one", deserialize_with = "deserialize_f64_default_one")]
     pub total_work_days: f64,
-    #[serde(default = "default_one")]
+    #[serde(default = "default_one", deserialize_with = "deserialize_f64_default_one")]
     pub vehicle_count: f64,
 }
 
@@ -77,6 +132,7 @@ fn default_one() -> f64 {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DepotInput {
+    #[serde(default, deserialize_with = "deserialize_option_vec_f64")]
     pub coordinates: Option<Vec<f64>>,
     pub matrix_index: Option<usize>,
 }
@@ -84,9 +140,11 @@ pub struct DepotInput {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ItemInput {
     pub id: String,
+    #[serde(deserialize_with = "deserialize_f64")]
     pub lat: f64,
+    #[serde(deserialize_with = "deserialize_f64")]
     pub lon: f64,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_f64_map")]
     pub quantities: HashMap<String, f64>,
     #[serde(default)]
     pub v_id: Vec<String>,
@@ -95,7 +153,7 @@ pub struct ItemInput {
     #[serde(default)]
     pub day_skills: Vec<String>,
     pub matrix_index: Option<usize>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_vec_f64")]
     pub duration_from_and_to_depot: Vec<f64>,
 }
 
