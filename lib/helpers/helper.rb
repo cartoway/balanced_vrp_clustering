@@ -203,16 +203,23 @@ module Helper
       ]
 
       centroids.each_with_index{ |c, i|
+        props = c[4] || {}
+        load = c[3] || {}
+        visit_duration = load[:duration].to_f
+        route_time = props[:route_time].to_f
+        depot_duration = props[:duration_from_and_to_depot].to_f
+        work_days = (props[:total_work_days] || 1).to_f
+
         csv << [
           i + 1,
-          c[4][:vehicle_count],
-          c[4][:capacities],
-          c[4][:skills],
-          c[4][:visit_count],
-          (c[3][:duration] + c[4][:route_time] + c[4][:duration_from_and_to_depot] * c[4][:total_work_days]) / 86400,
-          c[3][:duration] / 86400,
-          c[4][:route_time] / 86400,
-          (c[4][:duration_from_and_to_depot] * c[4][:total_work_days]) / 86400
+          props[:vehicle_count],
+          props[:capacities],
+          props[:skills],
+          props[:visit_count],
+          (visit_duration + route_time + depot_duration * work_days) / 86400,
+          visit_duration / 86400,
+          route_time / 86400,
+          (depot_duration * work_days) / 86400
         ]
       }
     end

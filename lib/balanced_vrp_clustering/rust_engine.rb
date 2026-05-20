@@ -68,21 +68,41 @@ module Ai4r
           end
           clusterer.instance_variable_set(:@clusters, clusters)
           centroids = centroids_from_vehicles(clusterer)
-          sync_centroid_loads!(centroids, clusters)
+          sync_centroid_state!(centroids, clusters, clusterer.vehicles)
           clusterer.instance_variable_set(:@centroids, centroids)
           clusterer.instance_variable_set(:@number_of_clusters, clusters.size)
           clusterer.instance_variable_set(:@balance_coeff, Array.new(clusters.size, 1.0))
         end
 
-        def sync_centroid_loads!(centroids, clusters)
+        # Mirror Ruby post-build centroid fields used by output_cluster_stats / geojson.
+        def sync_centroid_state!(centroids, clusters, vehicles)
           centroids.each_with_index do |centroid, index|
+            vehicle = vehicles[index] || {}
+            cluster = clusters[index]
+
             load = Hash.new(0.0)
-            clusters[index].data_items.each do |item|
-              item[3].each do |unit, qty|
-                load[unit] += qty.to_f if qty
-              end
+            visit_count = 0.0
+            cluster.data_items.each do |item|
+              item[3].each { |unit, qty| load[unit] += qty.to_f if qty }
+              visit_count += (item[3][:visits] || 1).to_f
             end
             centroid[3] = load
+            load[:duration] = load[:duration].to_f
+
+            depot_durations = cluster.data_items.filter_map do |item|
+              arr = item[4][:duration_from_and_to_depot]
+              next unless arr.is_a?(Array) && index < arr.size
+
+              arr[index].to_f
+            end
+
+            centroid[4][:visit_count] = visit_count
+            centroid[4][:route_time] = centroid[4][:route_time].to_f
+            centroid[4][:vehicle_count] = vehicle[:vehicle_count] || 1
+            centroid[4][:total_work_days] = vehicle[:total_work_days] || 1
+            centroid[4][:capacities] = vehicle[:capacities] || {}
+            centroid[4][:skills] = vehicle[:skills] || []
+            centroid[4][:duration_from_and_to_depot] = depot_durations.empty? ? 0.0 : depot_durations.sum / depot_durations.size
           end
         end
 
@@ -126,7 +146,7 @@ module Ai4r
               'max_iterations' => @clusterer.max_iterations.to_i,
               'vehicles' => @clusterer.vehicles.map { |v| self.class.vehicle_to_json(v) },
               'items' => @data_set.data_items.map { |i| self.class.item_to_json(i) },
-              'distance_matrix' => @clusterer.distance_matrix,
+              'distance_matrix' => self.class.json_distance_matrix(@clusterer.distance_matrix),
               'centroid_indices' => @clusterer.centroid_indices || [],
               'related_item_indices' => serialize_related_indices(@related_item_indices)
             }
@@ -136,17 +156,36 @@ module Ai4r
             seed.to_i & ((1 << 64) - 1)
           end
 
+          def self.json_float(value, default: 0.0)
+            value.nil? ? default : value.to_f
+          end
+
+          def self.json_float_array(values)
+            Array(values).map { |v| json_float(v) }
+          end
+
+          def self.json_coordinates(coords)
+            c = coords || [0.0, 0.0]
+            [json_float(c[0]), json_float(c[1])]
+          end
+
+          def self.json_distance_matrix(matrix)
+            return nil unless matrix
+
+            matrix.map { |row| row.map { |cell| json_float(cell) } }
+          end
+
           def self.item_to_json(item)
             {
               'id' => item[2].to_s,
-              'lat' => item[0],
-              'lon' => item[1],
-              'quantities' => item[3].transform_keys(&:to_s).transform_values { |v| v.to_f },
+              'lat' => json_float(item[0]),
+              'lon' => json_float(item[1]),
+              'quantities' => item[3].transform_keys(&:to_s).transform_values { |v| json_float(v) },
               'v_id' => item[4][:v_id] || [],
               'skills' => item[4][:skills] || [],
               'day_skills' => item[4][:day_skills] || [],
               'matrix_index' => item[4][:matrix_index],
-              'duration_from_and_to_depot' => item[4][:duration_from_and_to_depot] || []
+              'duration_from_and_to_depot' => json_float_array(item[4][:duration_from_and_to_depot])
             }
           end
 
@@ -155,15 +194,15 @@ module Ai4r
             {
               'id' => vehicle[:id] || [],
               'depot' => {
-                'coordinates' => depot[:coordinates],
+                'coordinates' => json_coordinates(depot[:coordinates]),
                 'matrix_index' => depot[:matrix_index]
               }.compact,
-              'capacities' => (vehicle[:capacities] || {}).transform_keys(&:to_s).transform_values { |v| v.to_f },
+              'capacities' => (vehicle[:capacities] || {}).transform_keys(&:to_s).transform_values { |v| json_float(v) },
               'skills' => vehicle[:skills] || [],
               'day_skills' => vehicle[:day_skills] || [],
-              'duration' => vehicle[:duration].to_f,
-              'total_work_days' => vehicle[:total_work_days] || 1,
-              'vehicle_count' => vehicle[:vehicle_count] || 1
+              'duration' => json_float(vehicle[:duration]),
+              'total_work_days' => json_float(vehicle[:total_work_days], default: 1.0),
+              'vehicle_count' => json_float(vehicle[:vehicle_count], default: 1.0)
             }
           end
 

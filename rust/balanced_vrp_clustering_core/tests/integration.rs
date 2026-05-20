@@ -38,3 +38,34 @@ fn golden_tiny_builds() {
     );
     assert!(output.iterations > 0);
 }
+
+#[test]
+fn parses_json_null_numeric_fields() {
+    let json = r#"{
+        "seed": 1,
+        "cut_ratio": null,
+        "max_iterations": 10,
+        "vehicles": [{
+            "id": ["v1"],
+            "depot": { "coordinates": [null, 48.5] },
+            "duration": null,
+            "total_work_days": null,
+            "vehicle_count": null,
+            "capacities": { "visits": null }
+        }],
+        "items": [{
+            "id": "p1",
+            "lat": null,
+            "lon": null,
+            "quantities": { "visits": null },
+            "duration_from_and_to_depot": [null, 120.0]
+        }],
+        "distance_matrix": [[null, 2.0]],
+        "centroid_indices": []
+    }"#;
+    let input: InputConfig = serde_json::from_str(json).expect("parse nulls as zero");
+    assert_eq!(input.cut_ratio, 0.0);
+    assert_eq!(input.items[0].lat, 0.0);
+    assert_eq!(input.items[0].duration_from_and_to_depot, [0.0, 120.0]);
+    assert_eq!(input.distance_matrix.as_ref().unwrap()[0][0], 0.0);
+}
