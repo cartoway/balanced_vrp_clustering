@@ -1,3 +1,25 @@
 # Generated files
 balanced_vrp_clustering-*.gem
 .byebug_history
+
+# Benchmark outputs (local only)
+benchmark/results/
+benchmark/regression/baselines/
+
+# Rust build artifacts (workspace + per-crate targets from rb_sys)
+rust/**/target/
+rust/target/
+
+# rb_sys / mkmf outputs (native ext built in crate dir)
+rust/balanced_vrp_clustering_native/Makefile
+rust/balanced_vrp_clustering_native/mkmf.log
+rust/balanced_vrp_clustering_native/*.so
+rust/balanced_vrp_clustering_native/*.bundle
+
+# Native extension (built locally)
+lib/balanced_vrp_clustering_native.so
+lib/balanced_vrp_clustering_native.bundle
+
+# Large JSON fixtures (regenerate via rake benchmark:export_json)
+benchmark/fixtures/json/scale_*.json
+benchmark/fixtures/json/avoid_capacities_overlap.json

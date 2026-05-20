@@ -24,6 +24,7 @@ require 'ai4r'
 
 require 'helpers/helper.rb'
 require 'concerns/overloadable_functions.rb'
+require_relative 'balanced_vrp_clustering/rust_engine'
 
 # for geojson dump
 require 'helpers/hull.rb'
@@ -31,6 +32,8 @@ require 'color-generator'
 require 'geojson2image'
 
 INCOMPATIBILITY_DISTANCE_PENALTY = 2**32
+LOCAL_SPEED_CELL_DEG = 0.01
+LOCAL_SPEED_NEIGHBOR_LIMIT = 100
 
 module Ai4r
   module Clusterers
@@ -116,6 +119,7 @@ module Ai4r
           raise ArgumentError, 'All vehicles should have a limit for the unit corresponding to the cut symbol'
         end
 
+        @related_item_indices_for_rust = related_item_indices.transform_values { |groups| groups.map(&:dup) }
         connect_linked_items(data_set.data_items, related_item_indices)
 
         ### values ###
@@ -134,7 +138,11 @@ module Ai4r
 
         @distance_function ||= lambda do |a, b|
           if @distance_matrix
-            [@distance_matrix[a[4][:matrix_index]][b[4][:matrix_index]], @distance_matrix[b[4][:matrix_index]][a[4][:matrix_index]]].min
+            a_idx = a[4][:matrix_index]
+            b_idx = b[4][:matrix_index]
+            d = @distance_matrix[a_idx][b_idx]
+            b_dist = @distance_matrix[b_idx][a_idx]
+            d <= b_dist ? d : b_dist
           else
             Helper.flying_distance(a, b)
           end
@@ -185,6 +193,16 @@ module Ai4r
           group.each{ |d_i| d_i[4][:centroid_weights][:compatibility] = compatibility_weight.ceil }
         }
 
+        if use_rust_engine?(options)
+          validate_centroid_indices_for_linked_items!(@data_set.data_items)
+          @logger&.info 'Clustering engine: rust'
+          BalancedVRPClusteringRustEngine.build(self, @data_set, cut_symbol, related_item_indices, cut_ratio, options)
+          @balance_coeff ||= Array.new(@number_of_clusters, 1.0)
+          Helper.output_cluster_stats(@centroids, @logger)
+          output_cluster_geojson
+          return self
+        end
+
         @strict_limitations, @cut_limit = compute_limits(cut_symbol, cut_ratio, @vehicles, @data_set.data_items)
 
         ### algo start ###
@@ -194,6 +212,8 @@ module Ai4r
         @clusters_with_limit_violation = Array.new(@number_of_clusters){ [] }
 
         @balance_coeff = Array.new(@number_of_clusters, 1.0)
+        @evaluate_distance_buffer = Array.new(@number_of_clusters)
+        @cluster_load = Array.new(@number_of_clusters) { Hash.new(0.0) }
 
         calc_initial_centroids
 
@@ -241,6 +261,37 @@ module Ai4r
         output_cluster_geojson
 
         self
+      end
+
+      def validate_centroid_indices_for_linked_items!(data_items)
+        return if @centroid_indices.empty?
+
+        raise ArgumentError, 'Same centroid_index provided several times' if @centroid_indices.size != @centroid_indices.uniq.size
+        raise ArgumentError, 'Wrong number of initial centroids provided' if @centroid_indices.size != @number_of_clusters
+
+        insert_at_beginning = []
+        @centroid_indices.each_with_index do |index, ind|
+          raise ArgumentError, 'Invalid centroid index' unless index.is_a?(Integer) && index >= 0 && index < data_items.length
+
+          item = data_items[index]
+          do_forall_linked_items_of(item) do |linked_item|
+            next unless insert_at_beginning.include?(linked_item)
+
+            used_at = insert_at_beginning.index(linked_item)
+            msg = "Centroid #{ind} is initialised with a service which has a linked service that is used to initialise centroid #{used_at}"
+            raise ArgumentError, msg
+          end
+          insert_at_beginning << item
+        end
+      end
+
+      def use_rust_engine?(options)
+        return false if options[:engine] == :ruby
+        return false if options[:compatibility_function]
+        return false if options[:distance_function]
+        return false unless BalancedVRPClusteringRustEngine.available?
+
+        options[:engine] == :rust || options[:engine].nil?
       end
 
       def connect_linked_items(data_items, related_item_indices)
@@ -498,26 +549,25 @@ module Ai4r
       # Classifies the given data item, returning the cluster index it belongs
       # to (0-based).
       def evaluate(data_item)
-        distances = @centroids.collect.with_index{ |centroid, cluster_index|
+        distances = @evaluate_distance_buffer
+        @centroids.each_with_index do |centroid, cluster_index|
           dist = distance(data_item, centroid, cluster_index)
-
           dist += INCOMPATIBILITY_DISTANCE_PENALTY unless @compatibility_function.call(data_item, centroid)
-
-          dist
-        }
+          distances[cluster_index] = dist
+        end
 
         closest_cluster_index = get_min_index(distances)
 
         if capactity_violation?(data_item, closest_cluster_index)
-          mininimum_without_limit_violation = INCOMPATIBILITY_DISTANCE_PENALTY # only consider compatible ones
+          mininimum_without_limit_violation = INCOMPATIBILITY_DISTANCE_PENALTY
           closest_cluster_wo_violation_index = nil
-          @number_of_clusters.times{ |k|
+          @number_of_clusters.times do |k|
             next unless distances[k] < mininimum_without_limit_violation &&
                         !capactity_violation?(data_item, k)
 
             closest_cluster_wo_violation_index = k
             mininimum_without_limit_violation = distances[k]
-          }
+          end
 
           if closest_cluster_wo_violation_index
             mininimum_with_limit_violation = distances.min
@@ -525,7 +575,9 @@ module Ai4r
             ratio = mininimum_without_limit_violation / mininimum_with_limit_violation
             ratio = 1 if ratio.to_f.nan?
 
-            @items_with_limit_violation << [data_item, diff, ratio, closest_cluster_index, closest_cluster_wo_violation_index, mininimum_with_limit_violation]
+            @items_with_limit_violation << [
+              data_item, diff, ratio, closest_cluster_index, closest_cluster_wo_violation_index, mininimum_with_limit_violation
+            ]
 
             @clusters_with_limit_violation[closest_cluster_index] << closest_cluster_wo_violation_index
             closest_cluster_index = closest_cluster_wo_violation_index
@@ -549,6 +601,7 @@ module Ai4r
         update_strict_duration_limitation_wrt_depot
 
         @centroids.each{ |centroid| centroid[3] = Hash.new(0) }
+        @cluster_load.each(&:clear)
         @clusters = Array.new(@number_of_clusters) do
           Ai4r::Data::DataSet.new data_labels: @data_set.data_labels
         end
@@ -723,31 +776,67 @@ module Ai4r
       private
 
       def calculate_local_speeds
-        # TODO: Following speed approximation is not efficient, needs to be improved
         # TODO: Following speed approximation is done with respect to a fixed depot
         # (first one) it needs to be generalised to multi-depot case...
-        # (maybe with max_by over duration or min_by over calculated speed)
-        # TODO: check the effect of 100 in min_by(100), if decreasing it improves the speed approximation or the performance
-
         local_max_speed = 60 / 3.6 # meters per second
         local_min_speed = 5 / 3.6 # meters per second
+        items = @data_set.data_items
+        grid = build_local_speed_spatial_grid(items)
 
-        @data_set.data_items.each{ |a|
-          a[4][:local_speed] ||= # [[calculated_speed, local_min_speed].max, local_max_speed].min
-            [
-              [
-                @data_set.data_items.select{ |b|
-                  (a[4][:duration_from_and_to_depot][0] - b[4][:duration_from_and_to_depot][0]).abs > 1 && Helper.flying_distance(a, b) > 5
-                }.min_by(100){ |b|
-                  Helper.flying_distance(a, b)
-                }.collect{ |b|
-                  Helper.flying_distance(a, b) / (a[4][:duration_from_and_to_depot][0] - b[4][:duration_from_and_to_depot][0]).abs # m/s (eucledian)
-                }.min(2).sum * 1.1, # duration_from_and_to_depot is two-way, instead of multiplication with 2, take the sum of the first two
-                local_min_speed
-              ].max,
-              local_max_speed
-            ].min
-        }
+        items.each do |a|
+          next if a[4][:local_speed]
+
+          a[4][:local_speed] = compute_local_speed_for_item(a, grid, local_min_speed, local_max_speed)
+        end
+      end
+
+      def build_local_speed_spatial_grid(items)
+        grid = Hash.new { |h, k| h[k] = [] }
+        cell = LOCAL_SPEED_CELL_DEG
+        items.each do |item|
+          grid[[(item[0] / cell).to_i, (item[1] / cell).to_i]] << item
+        end
+        grid
+      end
+
+      def local_speed_spatial_neighbors(item, grid)
+        cell = LOCAL_SPEED_CELL_DEG
+        cx = (item[0] / cell).to_i
+        cy = (item[1] / cell).to_i
+        neighbors = []
+        (-1..1).each do |dx|
+          (-1..1).each do |dy|
+            neighbors.concat(grid[[cx + dx, cy + dy]])
+          end
+        end
+        neighbors
+      end
+
+      def compute_local_speed_for_item(item, grid, local_min_speed, local_max_speed)
+        depot_duration_a = item[4][:duration_from_and_to_depot][0]
+        candidates = []
+        local_speed_spatial_neighbors(item, grid).each do |other|
+          next if other.equal?(item)
+
+          depot_diff = (depot_duration_a - other[4][:duration_from_and_to_depot][0]).abs
+          next unless depot_diff > 1
+
+          flying_dist = Helper.flying_distance(item, other)
+          next unless flying_dist > 5
+
+          candidates << [flying_dist, other]
+        end
+
+        calculated_speed = if candidates.empty?
+                             local_min_speed
+                           else
+                             candidates.sort_by!(&:first)
+                             candidates.first(LOCAL_SPEED_NEIGHBOR_LIMIT).map { |flying_dist, other|
+                               flying_dist / (depot_duration_a - other[4][:duration_from_and_to_depot][0]).abs
+                             }.min(2).sum * 1.1
+                           end
+
+        [[calculated_speed, local_min_speed].max, local_max_speed].min
       end
 
       def do_forall_linked_items_of(item)
@@ -941,33 +1030,26 @@ module Ai4r
       end
 
       def update_metrics(data_item, cluster_index)
-        data_item[3].each{ |unit, value|
-          @centroids[cluster_index][3][unit] += value.to_f
-        }
+        data_item[3].each do |unit, value|
+          quantity = value.to_f
+          @centroids[cluster_index][3][unit] += quantity
+          @cluster_load[cluster_index][unit] += quantity
+        end
+      end
+
+      def linked_quantity(item, unit)
+        total_value = 0.0
+        do_forall_linked_items_of(item) { |linked_item| total_value += linked_item[3][unit].to_f if linked_item[3][unit] }
+        total_value
       end
 
       def capactity_violation?(item, cluster_index)
         # TODO: correction of duration wrt to cluster "size" is needed for duration capacity
-        # For this,
-        # (1) we need to keep some info inside the centroid/cluster
-        # The distance of the most distant point, the surface area (i.e., travel duration approximation for the cluster),
-        # number of visits in this cluster at the end of last iteration.
-        # Then for checking duration capacity violation,
-        # if the item in consideration is more farther away then the current most distant point then update the "cluster_size" temporarily
-        # if not, no update is needed
-        # and then check the following
-        # duration_from_to_depot x n_day + current_duration_load + cluster_size + duration_value > limit
-        # (2) at the moment of actual affectation, we need to check again and make a correction of the info kept inside the cluster/centroid if needed
-        # (3) at the end of iteration update the visit count
-        # (4) modify update_cut_limit_wrt_depot_distance so that we always have an up-to-date distance into inside centroid
-        item[3].any?{ |unit, _value|
-          next unless @strict_limitations[cluster_index][unit]
+        @strict_limitations[cluster_index].any? do |unit, limit|
+          next false unless limit
 
-          total_value = 0
-          do_forall_linked_items_of(item){ |linked_item| total_value += linked_item[3][unit] || 0 }
-
-          @centroids[cluster_index][3][unit] + total_value > @strict_limitations[cluster_index][unit]
-        }
+          @cluster_load[cluster_index][unit] + linked_quantity(item, unit) > limit
+        end
       end
 
       def compatible_items_multi_depot_selector(items_to_consider)
@@ -984,6 +1066,8 @@ module Ai4r
       def output_cluster_geojson
         # TODO: clean the geojson function and move them to helpers
         return unless @geojson_dump_folder
+
+        @balance_coeff ||= Array.new(@number_of_clusters, 1.0)
 
         @start_time ||= Time.now.strftime('%H:%M:%S').parameterize
         colorgenerator = ColorGenerator.new(saturation: 0.8, value: 1.0, seed: 1) if @geojson_colors.nil? # fix the seed so that color order is the same
