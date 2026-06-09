@@ -67,7 +67,7 @@ module Ai4r
             ds
           end
           clusterer.instance_variable_set(:@clusters, clusters)
-          centroids = centroids_from_vehicles(clusterer)
+          centroids = centroids_from_clusters(clusters, clusterer.vehicles)
           sync_centroid_state!(centroids, clusters, clusterer.vehicles)
           clusterer.instance_variable_set(:@centroids, centroids)
           clusterer.instance_variable_set(:@number_of_clusters, clusters.size)
@@ -106,10 +106,27 @@ module Ai4r
           end
         end
 
-        def centroids_from_vehicles(clusterer)
-          clusterer.vehicles.map do |vehicle|
+        def centroids_from_clusters(clusters, vehicles)
+          clusters.each_with_index.map do |cluster, index|
+            vehicle = vehicles[index] || {}
             depot = vehicle[:depot] || {}
-            coords = depot[:coordinates] || [0.0, 0.0]
+            depot_coords = depot[:coordinates] || [0.0, 0.0]
+            items = cluster.data_items
+
+            lat, lon, representative_id =
+              if items.empty?
+                [depot_coords[0], depot_coords[1], Array(vehicle[:id]).flatten.first]
+              else
+                total_visits = items.sum { |item| (item[3][:visits] || 1).to_f }
+                total_visits = 1.0 if total_visits.zero?
+                mean_lat = items.sum { |item| item[0].to_f * (item[3][:visits] || 1).to_f } / total_visits
+                mean_lon = items.sum { |item| item[1].to_f * (item[3][:visits] || 1).to_f } / total_visits
+                representative = items.min_by do |item|
+                  Helper.flying_distance([item[0], item[1]], [mean_lat, mean_lon])
+                end
+                [representative[0], representative[1], representative[2]]
+              end
+
             skills = vehicle.merge(
               matrix_index: depot[:matrix_index],
               duration_from_and_to_depot: depot[:duration_from_and_to_depot],
@@ -117,13 +134,7 @@ module Ai4r
               capacity_offence_coeff: 0,
               visit_count: 0
             )
-            [
-              coords[0],
-              coords[1],
-              Array(vehicle[:id]).flatten.first,
-              Hash.new(0),
-              skills
-            ]
+            [lat, lon, representative_id, Hash.new(0), skills]
           end
         end
 
@@ -175,15 +186,19 @@ module Ai4r
             matrix.map { |row| row.map { |cell| json_float(cell) } }
           end
 
+          def self.json_string_array(values)
+            Array(values).flatten.map(&:to_s)
+          end
+
           def self.item_to_json(item)
             {
               'id' => item[2].to_s,
               'lat' => json_float(item[0]),
               'lon' => json_float(item[1]),
               'quantities' => item[3].transform_keys(&:to_s).transform_values { |v| json_float(v) },
-              'v_id' => item[4][:v_id] || [],
-              'skills' => item[4][:skills] || [],
-              'day_skills' => item[4][:day_skills] || [],
+              'v_id' => json_string_array(item[4][:v_id]),
+              'skills' => json_string_array(item[4][:skills]),
+              'day_skills' => json_string_array(item[4][:day_skills]),
               'matrix_index' => item[4][:matrix_index],
               'duration_from_and_to_depot' => json_float_array(item[4][:duration_from_and_to_depot])
             }
@@ -192,14 +207,14 @@ module Ai4r
           def self.vehicle_to_json(vehicle)
             depot = vehicle[:depot] || {}
             {
-              'id' => vehicle[:id] || [],
+              'id' => json_string_array(vehicle[:id]),
               'depot' => {
                 'coordinates' => json_coordinates(depot[:coordinates]),
                 'matrix_index' => depot[:matrix_index]
               }.compact,
               'capacities' => (vehicle[:capacities] || {}).transform_keys(&:to_s).transform_values { |v| json_float(v) },
-              'skills' => vehicle[:skills] || [],
-              'day_skills' => vehicle[:day_skills] || [],
+              'skills' => json_string_array(vehicle[:skills]),
+              'day_skills' => json_string_array(vehicle[:day_skills]),
               'duration' => json_float(vehicle[:duration]),
               'total_work_days' => json_float(vehicle[:total_work_days], default: 1.0),
               'vehicle_count' => json_float(vehicle[:vehicle_count], default: 1.0)

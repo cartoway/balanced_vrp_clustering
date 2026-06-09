@@ -197,6 +197,7 @@ module Ai4r
           validate_centroid_indices_for_linked_items!(@data_set.data_items)
           @logger&.info 'Clustering engine: rust'
           BalancedVRPClusteringRustEngine.build(self, @data_set, cut_symbol, related_item_indices, cut_ratio, options)
+          @strict_limitations, @cut_limit = compute_limits(cut_symbol, cut_ratio, @vehicles, @data_set.data_items)
           @balance_coeff ||= Array.new(@number_of_clusters, 1.0)
           Helper.output_cluster_stats(@centroids, @logger)
           output_cluster_geojson
