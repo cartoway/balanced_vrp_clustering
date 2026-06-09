@@ -43,6 +43,44 @@ class FfiEngineTest < Tests
     assert_equal expected, actual
   end
 
+  def test_build_accepts_integer_vehicle_ids
+    skip 'Run: bundle exec rake native:compile' unless Ai4r::Clusterers::BalancedVRPClusteringRustEngine.available?
+
+    payload = Ai4r::Clusterers::BalancedVRPClusteringRustEngine::InputSerializer.new(
+      clusterer: Ai4r::Clusterers::BalancedVRPClustering.new.tap do |c|
+        c.vehicles = [{
+          id: [1],
+          depot: { coordinates: [0.0, 0.0] },
+          capacities: { visits: 10 },
+          skills: [],
+          day_skills: %w[0_day_skill],
+          duration: 100,
+          total_work_days: 1
+        }]
+        c.max_iterations = 10
+      end,
+      data_set: Ai4r::Data::DataSet.new(data_items: [[0.0, 0.0, 'p1', { visits: 1 }, { v_id: [2], skills: [], day_skills: %w[0_day_skill] }]]),
+      cut_symbol: :visits,
+      related_item_indices: {},
+      cut_ratio: 1.0,
+      options: { seed: 42 }
+    ).to_h
+
+    assert_equal ['1'], payload['vehicles'].first['id']
+    assert_equal ['2'], payload['items'].first['v_id']
+  end
+
+  def test_rust_build_exposes_cut_limit
+    skip 'Run: bundle exec rake native:compile' unless Ai4r::Clusterers::BalancedVRPClusteringRustEngine.available?
+
+    clusterer, data_set = Instance.two_clusters_4_items
+    clusterer.build(data_set, :visits, {}, 1.0, { seed: 42_424 })
+
+    assert clusterer.cut_limit
+    assert_equal clusterer.vehicles.size, clusterer.cut_limit.size
+    assert clusterer.cut_limit.all? { |entry| entry.key?(:limit) }
+  end
+
   def test_build_tolerates_nil_numeric_fields_in_items
     skip 'Run: bundle exec rake native:compile' unless Ai4r::Clusterers::BalancedVRPClusteringRustEngine.available?
 
