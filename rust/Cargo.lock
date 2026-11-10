@@ -78,7 +78,7 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "balanced_vrp_clustering_core"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "approx",
  "clap",
@@ -90,7 +90,7 @@ dependencies = [
 
 [[package]]
 name = "balanced_vrp_clustering_native"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "balanced_vrp_clustering_core",
  "magnus",

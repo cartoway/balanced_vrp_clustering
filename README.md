@@ -7,7 +7,7 @@ The public API still lives under the historical `Ai4r::` namespace (`Ai4r::Clust
 # Gem generation (for contributors)
 
 Within gem project use
-```gem build balanced_vrp_clustering.gemspec``` and ```gem install balanced_vrp_clustering-0.4.0.gem``` to generate and install the gem (compiles the Rust native extension via `rust/balanced_vrp_clustering_native/extconf.rb`; requires Rust toolchain and `rb_sys`).
+```gem build balanced_vrp_clustering.gemspec``` and ```gem install balanced_vrp_clustering-*.gem``` to generate and install the gem (compiles the Rust native extension via `rust/balanced_vrp_clustering_native/extconf.rb`; requires Rust toolchain and `rb_sys`).
 
   # Usage
 

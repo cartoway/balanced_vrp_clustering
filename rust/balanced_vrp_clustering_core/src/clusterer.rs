@@ -184,7 +184,7 @@ impl Clusterer {
         }
     }
 
-    pub fn build(mut self) -> BuildOutput {
+    pub fn build(mut self) -> Result<BuildOutput, String> {
         let started = Instant::now();
         connect_linked_items(&mut self.items, &self.related_item_indices);
 
@@ -200,7 +200,7 @@ impl Clusterer {
         self.strict_limitations = strict;
         self.cut_limit = cut_lim;
 
-        self.calc_initial_centroids();
+        self.calc_initial_centroids()?;
         self.prepare_balancing();
 
         self.mark_items_at_top();
@@ -217,11 +217,11 @@ impl Clusterer {
             .map(|c| c.iter().map(|&i| self.items[i].id.clone()).collect())
             .collect();
 
-        BuildOutput {
+        Ok(BuildOutput {
             iterations: self.iteration,
             clusters,
             elapsed_ms: started.elapsed().as_millis() as u64,
-        }
+        })
     }
 
     fn init_unit_symbols(&mut self) {
@@ -560,7 +560,7 @@ impl Clusterer {
         }
     }
 
-    fn calc_initial_centroids(&mut self) {
+    fn calc_initial_centroids(&mut self) -> Result<(), String> {
         self.centroids.clear();
         self.old_centroids_lat_lon.clear();
         let mut remaining_skills: Vec<Vehicle> = self.vehicles.clone();
@@ -616,14 +616,25 @@ impl Clusterer {
             for (ind, &index) in self.centroid_indices.iter().enumerate() {
                 let skills = remaining_skills.remove(0);
                 let item = &self.items[index];
+                let mut linked_conflict: Option<usize> = None;
                 do_forall_linked(&self.items, index, |li| {
-                    if insert_at_beginning.contains(&li) {
-                        panic!("Centroid linked conflict");
+                    if linked_conflict.is_none() {
+                        if let Some(used_at) = insert_at_beginning.iter().position(|&x| x == li) {
+                            linked_conflict = Some(used_at);
+                        }
                     }
                 });
+                if let Some(used_at) = linked_conflict {
+                    return Err(format!(
+                        "Centroid {ind} is initialised with a service which has a linked service that is used to initialise centroid {used_at}"
+                    ));
+                }
                 let vehicle_centroid = vehicle_as_centroid_props(&skills);
                 if !compatible_item_centroid(item, &vehicle_centroid) {
-                    panic!("Incompatible centroid init");
+                    // Mirror Ruby populate_centroids ArgumentError message.
+                    return Err(format!(
+                        "Centroid {ind} is initialised with an incompatible service -- {index}"
+                    ));
                 }
                 let mut centroid = vehicle_centroid;
                 centroid.lat = item.lat;
@@ -643,6 +654,7 @@ impl Clusterer {
             c.capacity_offence_coeff = 0.0;
             c.route_time = 0.0;
         }
+        Ok(())
     }
 
     fn move_item_to_front(&mut self, item_idx: usize) {
@@ -1275,6 +1287,6 @@ fn default_day_skills() -> Vec<String> {
         .collect()
 }
 
-pub fn build_from_input(input: &InputConfig) -> BuildOutput {
+pub fn build_from_input(input: &InputConfig) -> Result<BuildOutput, String> {
     Clusterer::from_input(input).build()
 }

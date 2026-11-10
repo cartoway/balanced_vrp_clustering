@@ -115,4 +115,18 @@ class FfiEngineTest < Tests
     assert_equal 2, clusterer.clusters.size
     assert_equal 4, clusterer.clusters.sum { |c| c.data_items.size }
   end
+
+  def test_rust_incompatible_centroid_raises_argument_error
+    skip 'Run: bundle exec rake native:compile' unless Ai4r::Clusterers::BalancedVRPClusteringRustEngine.available?
+
+    clusterer, data_set = Instance.two_clusters_4_items
+    clusterer.vehicles[1][:skills] << 'needs_vehicle_1'
+    data_set.data_items[0][4][:skills] << 'needs_vehicle_1'
+    clusterer.centroid_indices = [0, 1]
+
+    error = assert_raises(ArgumentError) do
+      clusterer.build(data_set, :visits, {}, 1.0, { seed: 42_424 })
+    end
+    assert_match(/incompatible service/i, error.message)
+  end
 end

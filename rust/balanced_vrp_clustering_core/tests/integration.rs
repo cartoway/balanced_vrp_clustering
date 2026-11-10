@@ -30,7 +30,7 @@ fn golden_tiny_builds() {
     }
     let json = fs::read_to_string(path).expect("read tiny.json");
     let input: InputConfig = serde_json::from_str(&json).expect("parse");
-    let output = build_from_input(&input);
+    let output = build_from_input(&input).expect("build");
     assert_eq!(output.clusters.len(), 2);
     assert_eq!(
         output.clusters.iter().map(|c| c.len()).sum::<usize>(),

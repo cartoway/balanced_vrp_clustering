@@ -32,7 +32,8 @@ fn build_from_json(input: RString) -> Result<RString, Error> {
         )
     })?;
 
-    let output = build_from_input(&config);
+    let output = build_from_input(&config)
+        .map_err(|e| Error::new(ruby.exception_arg_error(), e))?;
     let out_json = serde_json::to_string(&output).map_err(|e| {
         Error::new(
             ruby.exception_runtime_error(),

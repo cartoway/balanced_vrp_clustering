@@ -18,7 +18,7 @@
 
 [package]
 name = "balanced_vrp_clustering_native"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 description = "Ruby native extension for balanced VRP clustering"
 license = "AGPL-3.0-or-later"

@@ -36,7 +36,7 @@ fn main() {
     let cli = Cli::parse();
     let json = fs::read_to_string(&cli.input).expect("read input");
     let input: InputConfig = serde_json::from_str(&json).expect("parse input");
-    let result = build_from_input(&input);
+    let result = build_from_input(&input).unwrap_or_else(|e| panic!("{e}"));
     let out_json = serde_json::to_string_pretty(&result).expect("serialize output");
     if let Some(path) = cli.output {
         fs::write(path, out_json).expect("write output");
