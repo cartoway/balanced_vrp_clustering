@@ -16,8 +16,6 @@
 # <http://www.gnu.org/licenses/agpl.html>
 #
 
-require 'awesome_print'
-
 module Helper
   R = 6_378_137 # Earth's radius in meters
 
@@ -186,45 +184,41 @@ module Helper
   end
 
   def self.output_cluster_stats(centroids, logger = nil)
-    # TODO: improve this function with a file option and csv output instead of csv_string
     return unless logger
 
-    csv_string = CSV.generate do |csv|
-      csv << %w[
-        zone
-        nb_vehicles
-        capacities
-        skills
-        nb_visits
-        total_duration(excel_format)
-        total_visit_duration
-        total_intra_zone_route_duration
-        total_depot_route_duration
-      ]
+    header = %w[
+      zone
+      nb_vehicles
+      capacities
+      skills
+      nb_visits
+      total_duration(excel_format)
+      total_visit_duration
+      total_intra_zone_route_duration
+      total_depot_route_duration
+    ]
+    rows = centroids.map.with_index do |c, i|
+      props = c[4] || {}
+      load = c[3] || {}
+      visit_duration = load[:duration].to_f
+      route_time = props[:route_time].to_f
+      depot_duration = props[:duration_from_and_to_depot].to_f
+      work_days = (props[:total_work_days] || 1).to_f
 
-      centroids.each_with_index{ |c, i|
-        props = c[4] || {}
-        load = c[3] || {}
-        visit_duration = load[:duration].to_f
-        route_time = props[:route_time].to_f
-        depot_duration = props[:duration_from_and_to_depot].to_f
-        work_days = (props[:total_work_days] || 1).to_f
-
-        csv << [
-          i + 1,
-          props[:vehicle_count],
-          props[:capacities],
-          props[:skills],
-          props[:visit_count],
-          (visit_duration + route_time + depot_duration * work_days) / 86400,
-          visit_duration / 86400,
-          route_time / 86400,
-          (depot_duration * work_days) / 86400
-        ]
-      }
+      [
+        i + 1,
+        props[:vehicle_count],
+        props[:capacities],
+        props[:skills],
+        props[:visit_count],
+        (visit_duration + route_time + depot_duration * work_days) / 86400,
+        visit_duration / 86400,
+        route_time / 86400,
+        (depot_duration * work_days) / 86400
+      ].join(',')
     end
 
-    logger&.debug "cluster_stats:\n" + csv_string
+    logger.debug "cluster_stats:\n#{header.join(',')}\n#{rows.join("\n")}"
   end
 end
 

@@ -40,7 +40,7 @@ fn build_from_json(input: RString) -> Result<RString, Error> {
         )
     })?;
 
-    Ok(RString::new(&out_json))
+    Ok(ruby.str_new(&out_json))
 }
 
 /// Returns true when the native extension loaded successfully.

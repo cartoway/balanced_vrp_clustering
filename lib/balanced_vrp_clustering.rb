@@ -20,24 +20,26 @@ require 'rubygems'
 require 'active_support'
 require 'active_support/core_ext'
 
-require 'ai4r'
+require_relative 'balanced_vrp_clustering/ai4r_compat'
 
 require 'helpers/helper.rb'
 require 'concerns/overloadable_functions.rb'
 require_relative 'balanced_vrp_clustering/rust_engine'
 
-# for geojson dump
 require 'helpers/hull.rb'
-require 'color-generator'
-require 'geojson2image'
 
 INCOMPATIBILITY_DISTANCE_PENALTY = 2**32
 LOCAL_SPEED_CELL_DEG = 0.01
 LOCAL_SPEED_NEIGHBOR_LIMIT = 100
+# Deterministic palette for optional geojson dump (no color-generator dependency).
+GEOJSON_PALETTE = %w[
+  #e6194b #3cb44b #ffe119 #4363d8 #f58231 #911eb4 #46f0f0 #f032e6 #bcf60c #fabebe
+  #008080 #e6beff #9a6324 #fffac8 #800000 #aaffc3 #808000 #ffd8b1 #000075 #808080
+].freeze
 
 module Ai4r
   module Clusterers
-    class BalancedVRPClustering < KMeans
+    class BalancedVRPClustering < Clusterer
       LINKING_RELATIONS = %i[order same_route sequence same_vehicle shipment].freeze
       BINDING_RELATIONS = %i[order same_route sequence same_vehicle].freeze
 
@@ -46,7 +48,10 @@ module Ai4r
       attr_reader :iteration
       attr_reader :cut_limit
 
-      parameters_info vehicles: 'Attributes of each cluster to generate. If centroid_indices are provided
+      parameters_info max_iterations: 'Maximum number of iterations to build the clusterer.',
+                      distance_function: 'Custom distance between two data items.',
+                      centroid_indices: 'Indices of data items to use as initial centroids.',
+                      vehicles: 'Attributes of each cluster to generate. If centroid_indices are provided
                       then vehicles should be ordered according to centroid_indices order',
                       vehicles_infos: '(DEPRECATED) Use vehicles',
                       logger: 'The logger to write the output. All written to logger.debug at the moment.',
@@ -61,11 +66,13 @@ module Ai4r
                         ' -- i.e., relocate the empty cluster to the closest compatible point.'
 
       def initialize
-        super
-        @logger ||= nil
-        @distance_matrix ||= nil
-        @unit_symbols ||= nil
-        @geojson_colors ||= nil
+        @max_iterations = nil
+        @distance_function = nil
+        @centroid_indices = []
+        @logger = nil
+        @distance_matrix = nil
+        @unit_symbols = nil
+        @geojson_colors = nil
         @on_empty = 'closest' # the other options are not available
       end
 
@@ -1065,18 +1072,15 @@ module Ai4r
       end
 
       def output_cluster_geojson
-        # TODO: clean the geojson function and move them to helpers
         return unless @geojson_dump_folder
 
         @balance_coeff ||= Array.new(@number_of_clusters, 1.0)
 
         @start_time ||= Time.now.strftime('%H:%M:%S').parameterize
-        colorgenerator = ColorGenerator.new(saturation: 0.8, value: 1.0, seed: 1) if @geojson_colors.nil? # fix the seed so that color order is the same
-        @geojson_colors ||= Array.new(@number_of_clusters){ "##{colorgenerator.create_hex}" }
+        @geojson_colors ||= Array.new(@number_of_clusters) { |i| GEOJSON_PALETTE[i % GEOJSON_PALETTE.size] }
 
         polygons = []
         points = []
-        # cluster for each vehicle
         @clusters.each_with_index{ |cluster, c_index|
           polygons << collect_hulls(cluster, c_index)
           points << collect_points(cluster, c_index)
@@ -1090,35 +1094,6 @@ module Ai4r
         }
 
         File.write(File.join(@geojson_dump_folder, "#{file_name}.geojson"), geojson.to_json)
-
-        # Generating the image takes long but for dev it is useful, should not be given as option.
-        generate_cluster_images = false
-        if generate_cluster_images
-          image_folder_path = File.join(@geojson_dump_folder, @start_time)
-          FileUtils.mkdir_p(image_folder_path)
-          geojson = {
-            type: 'FeatureCollection',
-            features: polygons
-          }
-          g2i = Geojson2image::Convert.new(
-            json: geojson.to_json,
-            width: 1080,
-            height: 1080,
-            padding: 0,
-            background: '#ffffff',
-            fill: '#008000',
-            stroke: '#006400',
-            output: File.join(image_folder_path, "output-#{@iterations}.png")
-          )
-          begin
-            g2i.to_image
-            FileUtils.cp(File.join(image_folder_path, "output-#{@iterations}.png"), File.join(@geojson_dump_folder, 'output-latest.png'))
-          rescue
-            # skip image generation if there is a polygon with less then 2 points
-            # Note: Doesn't have to be skipped but since the image is not necessary it doesn't worth the time.
-          end
-        end
-
         puts 'Clusters saved : ' + file_name
       end
 

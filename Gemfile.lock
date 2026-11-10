@@ -1,19 +1,8 @@
-GIT
-  remote: https://github.com/SergioFierens/ai4r.git
-  revision: 9583d6d576c2a7f73cd3bbc2ca8d34221957d4ac
-  ref: 9583d6d576c2a7f73cd3bbc2ca8d34221957d4ac
-  specs:
-    ai4r (2.0)
-
 PATH
   remote: .
   specs:
-    balanced_vrp_clustering (0.3.0)
+    balanced_vrp_clustering (0.4.0)
       activesupport
-      ai4r
-      awesome_print
-      color-generator
-      geojson2image
       rake
       rb_sys (~> 0.9.128)
 
@@ -34,7 +23,6 @@ GEM
       tzinfo (~> 2.0, >= 2.0.5)
     ansi (1.5.0)
     ast (2.4.3)
-    awesome_print (1.9.2)
     backport (1.2.0)
     base64 (0.3.0)
     benchmark (0.4.1)
@@ -42,16 +30,11 @@ GEM
     bigdecimal (3.2.2)
     builder (3.3.0)
     byebug (12.0.0)
-    chunky_png (1.4.0)
-    color-generator (0.0.4)
     concurrent-ruby (1.3.5)
     connection_pool (2.5.3)
     diff-lcs (1.6.2)
     docile (1.4.1)
     drb (2.2.3)
-    geojson2image (0.2.2)
-      chunky_png (~> 1.3)
-      oj (~> 3.6)
     i18n (1.14.7)
       concurrent-ruby (~> 1.0)
     jaro_winkler (1.6.1)
@@ -64,7 +47,7 @@ GEM
     lint_roller (1.1.0)
     logger (1.7.0)
     mini_portile2 (2.8.9)
-    minitest (5.25.5)
+    minitest (5.27.0)
     minitest-around (0.5.0)
       minitest (~> 5.0)
     minitest-bisect (1.7.0)
@@ -87,9 +70,6 @@ GEM
       mini_portile2 (~> 2.8.2)
       racc (~> 1.4)
     observer (0.1.2)
-    oj (3.16.11)
-      bigdecimal (>= 3.0)
-      ostruct (>= 0.2)
     ostruct (0.6.3)
     parallel (1.27.0)
     parser (3.3.8.0)
@@ -166,7 +146,7 @@ GEM
       concurrent-ruby (~> 1.0)
     unicode-display_width (3.1.4)
       unicode-emoji (~> 4.0, >= 4.0.4)
-    unicode-emoji (4.0.4)
+    unicode-emoji (4.3.0)
     yard (0.9.37)
     yard-solargraph (0.1.0)
       yard (~> 0.9)
@@ -176,7 +156,6 @@ PLATFORMS
 
 DEPENDENCIES
   activesupport
-  ai4r!
   balanced_vrp_clustering!
   benchmark-ips
   byebug

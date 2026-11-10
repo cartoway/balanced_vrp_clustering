@@ -1,11 +1,13 @@
 # About Balanced VRP Clustering
 
-This gem aims to help you solving your Vehicle Routing Problems by generating one sub-problem per vehicle. It is an adaptation of kmeans algorithm (based ok ai4r library : https://github.com/SergioFierens/ai4r), including notions of balance.
+This gem aims to help you solving your Vehicle Routing Problems by generating one sub-problem per vehicle. It is an adaptation of the k-means algorithm, including notions of balance.
+
+The public API still lives under the historical `Ai4r::` namespace (`Ai4r::Clusterers::BalancedVRPClustering`, `Ai4r::Data::DataSet`) for compatibility.
 
 # Gem generation (for contributors)
 
 Within gem project use
-```gem build balanced_vrp_clustering.gemspec``` and ```gem install balanced_vrp_clustering-0.3.0.gem``` to generate and install the gem (compiles the Rust native extension via `rust/balanced_vrp_clustering_native/extconf.rb`; requires Rust toolchain and `rb_sys`).
+```gem build balanced_vrp_clustering.gemspec``` and ```gem install balanced_vrp_clustering-0.4.0.gem``` to generate and install the gem (compiles the Rust native extension via `rust/balanced_vrp_clustering_native/extconf.rb`; requires Rust toolchain and `rb_sys`).
 
   # Usage
 
@@ -144,7 +146,7 @@ APP_ENV=test bundle exec rake test
 
 The gem compiles Rust via `rb_sys` during `bundle install`. **`rb-sys` always runs bindgen**, which requires **libclang** (`libclang-dev` on Debian).
 
-Debian/Ubuntu (e.g. optimizer-api Dockerfile) :
+Minimal Debian/Ubuntu packages for `bundle install` :
 
 ```dockerfile
 RUN apt-get update && apt-get install -y --no-install-recommends \
