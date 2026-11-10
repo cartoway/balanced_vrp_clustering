@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
   s.name = 'balanced_vrp_clustering'
-  s.version = '0.3.0'
-  s.date = '2026-05-20'
+  s.version = '0.4.0'
+  s.date = '2026-11-10'
   s.summary = 'Gem for clustering points of a given VRP.'
   s.authors = 'Cartoway'
   s.files = Dir[
@@ -18,13 +18,9 @@ Gem::Specification.new do |s|
   end
   s.require_paths = %w[lib]
   s.extensions = ['rust/balanced_vrp_clustering_native/extconf.rb']
+  s.required_ruby_version = '>= 3.1'
 
-  s.add_dependency 'ai4r'
   s.add_dependency 'activesupport'
   s.add_dependency 'rake'
   s.add_dependency 'rb_sys', '~> 0.9.128'
-
-  s.add_dependency 'color-generator' # for geojson debug output
-  s.add_dependency 'geojson2image'   # for geojson debug output
-  s.add_dependency 'awesome_print'   # for geojson debug output
 end

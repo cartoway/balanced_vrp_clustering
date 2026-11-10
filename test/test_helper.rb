@@ -54,7 +54,7 @@ include Ai4r::Data
 
 class Tests < Minitest::Test
   def around
-    @original_seed ||= Random::DEFAULT.seed
+    @original_seed ||= Random.seed
     yield
     srand @original_seed
   end
@@ -66,7 +66,7 @@ module Instance
 
     # to make the tests independently repeatable with the same minitest seed
     @callers ||= Hash.new(0)
-    @seed ||= Random::DEFAULT.seed
+    @seed ||= Random.seed
 
     options[:seed] ||= @seed + @callers[caller[0] + filepath]
     @callers[caller[0] + filepath] += 1

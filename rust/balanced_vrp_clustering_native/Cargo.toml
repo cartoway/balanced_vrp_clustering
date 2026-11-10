@@ -18,7 +18,7 @@
 
 [package]
 name = "balanced_vrp_clustering_native"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Ruby native extension for balanced VRP clustering"
 license = "AGPL-3.0-or-later"
@@ -29,5 +29,5 @@ name = "balanced_vrp_clustering_native"
 
 [dependencies]
 balanced_vrp_clustering_core = { path = "../balanced_vrp_clustering_core" }
-magnus = { version = "0.7" }
+magnus = { version = "0.8" }
 serde_json = "1"
