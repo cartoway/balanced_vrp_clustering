@@ -10,7 +10,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby: ['3.1', '3.2', '3.3', '3.4', '4.0']
+        # 3.2 and earlier are EOL (no security backports). Patch releases include Nov 2026 Regexp/String fixes.
+        ruby: ['3.3.14', '3.4.13', '4.0.10']
     steps:
       - uses: actions/checkout@v4
 

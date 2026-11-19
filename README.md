@@ -4,6 +4,12 @@ This gem aims to help you solving your Vehicle Routing Problems by generating on
 
 The public API still lives under the historical `Ai4r::` namespace (`Ai4r::Clusterers::BalancedVRPClustering`, `Ai4r::Data::DataSet`) for compatibility.
 
+## Ruby version
+
+Requires **Ruby >= 3.3**. Ruby 3.2 and earlier are end-of-life and are not supported.
+
+For production, use a patched release that includes the November 2026 security fixes for `Regexp` and `String` case conversion (at least **3.3.14**, **3.4.13**, or **4.0.10**). See the [Ruby security advisory](https://www.ruby-lang.org/en/news/2026/11/18/multiple-vulnerabilities-in-regexp-and-string/).
+
 # Gem generation (for contributors)
 
 Within gem project use

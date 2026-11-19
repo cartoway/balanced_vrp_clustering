@@ -1,10 +1,10 @@
 PATH
   remote: .
   specs:
-    balanced_vrp_clustering (0.4.1)
+    balanced_vrp_clustering (0.4.2)
       activesupport
       rake
-      rb_sys (~> 0.9.128)
+      rb_sys (~> 0.9.130)
 
 GEM
   remote: https://rubygems.org/
@@ -81,7 +81,7 @@ GEM
     rainbow (3.1.1)
     rake (13.3.0)
     rake-compiler-dock (1.12.0)
-    rb_sys (0.9.128)
+    rb_sys (0.9.130)
       rake-compiler-dock (= 1.12.0)
     rbs (3.6.1)
       logger
@@ -175,7 +175,7 @@ DEPENDENCIES
   solargraph
 
 RUBY VERSION
-   ruby 3.1.4p223
+   ruby 4.0.5p0
 
 BUNDLED WITH
    2.4.19
