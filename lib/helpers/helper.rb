@@ -16,6 +16,8 @@
 # <http://www.gnu.org/licenses/agpl.html>
 #
 
+require 'csv'
+
 module Helper
   R = 6_378_137 # Earth's radius in meters
 
@@ -197,28 +199,31 @@ module Helper
       total_intra_zone_route_duration
       total_depot_route_duration
     ]
-    rows = centroids.map.with_index do |c, i|
-      props = c[4] || {}
-      load = c[3] || {}
-      visit_duration = load[:duration].to_f
-      route_time = props[:route_time].to_f
-      depot_duration = props[:duration_from_and_to_depot].to_f
-      work_days = (props[:total_work_days] || 1).to_f
+    csv_string = CSV.generate do |csv|
+      csv << header
+      centroids.each_with_index do |c, i|
+        props = c[4] || {}
+        load = c[3] || {}
+        visit_duration = load[:duration].to_f
+        route_time = props[:route_time].to_f
+        depot_duration = props[:duration_from_and_to_depot].to_f
+        work_days = (props[:total_work_days] || 1).to_f
 
-      [
-        i + 1,
-        props[:vehicle_count],
-        props[:capacities],
-        props[:skills],
-        props[:visit_count],
-        (visit_duration + route_time + depot_duration * work_days) / 86400,
-        visit_duration / 86400,
-        route_time / 86400,
-        (depot_duration * work_days) / 86400
-      ].join(',')
+        csv << [
+          i + 1,
+          props[:vehicle_count],
+          props[:capacities],
+          props[:skills],
+          props[:visit_count],
+          (visit_duration + route_time + depot_duration * work_days) / 86400,
+          visit_duration / 86400,
+          route_time / 86400,
+          (depot_duration * work_days) / 86400
+        ]
+      end
     end
 
-    logger.debug "cluster_stats:\n#{header.join(',')}\n#{rows.join("\n")}"
+    logger.debug "cluster_stats:\n#{csv_string}"
   end
 end
 

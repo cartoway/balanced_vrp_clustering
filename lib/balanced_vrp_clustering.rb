@@ -102,15 +102,20 @@ module Ai4r
         end
 
         data_set.data_items.each do |item|
+          unless item[0] && item[1]
+            raise ArgumentError,
+                  "Location info (latitude and longitude) should be provided for item #{item[2]}"
+          end
+
           if item[4][:duration_from_and_to_depot]&.size.to_i > @vehicles.size
             raise ArgumentError, "duration_from_and_to_depot size (#{item[4][:duration_from_and_to_depot].size}) is greater than vehicles size (#{@vehicles.size}) for item #{item[2]}"
           end
           if !item[4].key?(:duration_from_and_to_depot) || item[4][:duration_from_and_to_depot].nil? || item[4][:duration_from_and_to_depot].size != @vehicles.size
             msg = "[WARNING] duration_from_and_to_depot was missing or incomplete for item #{item[2]}. It has been initialized or completed with 0s."
-            if defined?(@logger) && @logger
-              @logger.warn msg
+            if @logger
+              @logger.warn(msg)
             else
-              warn msg
+              warn(msg)
             end
             item[4][:duration_from_and_to_depot] ||= []
             item[4][:duration_from_and_to_depot].fill(0, item[4][:duration_from_and_to_depot].size...@vehicles.size)
@@ -126,8 +131,9 @@ module Ai4r
           raise ArgumentError, 'All vehicles should have a limit for the unit corresponding to the cut symbol'
         end
 
-        @related_item_indices_for_rust = related_item_indices.transform_values { |groups| groups.map(&:dup) }
-        connect_linked_items(data_set.data_items, related_item_indices)
+        related_for_rust = related_item_indices.transform_values { |groups| groups.map(&:dup) }
+        related_for_connect = related_for_rust.transform_values { |groups| groups.map(&:dup) }
+        connect_linked_items(data_set.data_items, related_for_connect)
 
         ### values ###
         @data_set = data_set
@@ -147,8 +153,14 @@ module Ai4r
           if @distance_matrix
             a_idx = a[4][:matrix_index]
             b_idx = b[4][:matrix_index]
-            d = @distance_matrix[a_idx][b_idx]
-            b_dist = @distance_matrix[b_idx][a_idx]
+            row_a = a_idx && @distance_matrix[a_idx]
+            row_b = b_idx && @distance_matrix[b_idx]
+            unless row_a && row_b && !row_a[b_idx].nil? && !row_b[a_idx].nil?
+              next Float::INFINITY
+            end
+
+            d = row_a[b_idx]
+            b_dist = row_b[a_idx]
             d <= b_dist ? d : b_dist
           else
             Helper.flying_distance(a, b)
@@ -156,11 +168,7 @@ module Ai4r
         end
 
         @compatibility_function ||= lambda do |data_item, centroid|
-          if compatible_characteristics?(data_item[4], centroid[4])
-            true
-          else
-            false
-          end
+          compatible_characteristics?(data_item[4], centroid[4])
         end
 
         @data_set.data_items.each{ |item|
@@ -200,12 +208,10 @@ module Ai4r
           group.each{ |d_i| d_i[4][:centroid_weights][:compatibility] = compatibility_weight.ceil }
         }
 
-        if use_rust_engine?(options)
+        if rust_engine?(options)
           validate_centroid_indices_for_linked_items!(@data_set.data_items)
           @logger&.info 'Clustering engine: rust'
-          BalancedVRPClusteringRustEngine.build(self, @data_set, cut_symbol, related_item_indices, cut_ratio, options)
-          @strict_limitations, @cut_limit = compute_limits(cut_symbol, cut_ratio, @vehicles, @data_set.data_items)
-          @balance_coeff ||= Array.new(@number_of_clusters, 1.0)
+          BalancedVRPClusteringRustEngine.build(self, @data_set, cut_symbol, related_for_rust, cut_ratio, options)
           Helper.output_cluster_stats(@centroids, @logger)
           output_cluster_geojson
           return self
@@ -293,13 +299,20 @@ module Ai4r
         end
       end
 
-      def use_rust_engine?(options)
+      def rust_engine?(options)
         return false if options[:engine] == :ruby
-        return false if options[:compatibility_function]
-        return false if options[:distance_function]
-        return false unless BalancedVRPClusteringRustEngine.available?
+        return false if options[:compatibility_function] || options[:distance_function]
 
-        options[:engine] == :rust || options[:engine].nil?
+        if options[:engine] == :rust
+          unless BalancedVRPClusteringRustEngine.available?
+            raise ArgumentError,
+                  'Rust clustering engine requested but native extension is not available. ' \
+                  'Run: bundle exec rake native:compile (or use options[:engine] => :ruby)'
+          end
+          return true
+        end
+
+        BalancedVRPClusteringRustEngine.available?
       end
 
       def connect_linked_items(data_items, related_item_indices)
@@ -782,6 +795,38 @@ module Ai4r
       end
 
       private
+
+      def apply_engine_result(result, data_set:)
+        missing = %w[strict_limitations cut_limit balance_coeff].reject { |key| result[key] }
+        if missing.any?
+          raise ArgumentError, "incomplete Rust engine output (missing: #{missing.join(', ')})"
+        end
+
+        @iteration = result['iterations']
+        items_by_id = data_set.data_items.index_by { |item| item[2].to_s }
+
+        @clusters = result['clusters'].map do |item_ids|
+          ds = Ai4r::Data::DataSet.new(data_labels: data_set.data_labels)
+          item_ids.each do |item_id|
+            item = items_by_id[item_id.to_s]
+            raise KeyError, "unknown item id #{item_id.inspect} in Rust output" unless item
+
+            ds << item
+          end
+          ds
+        end
+
+        centroids = BalancedVRPClusteringRustEngine.centroids_from_clusters(@clusters, @vehicles)
+        BalancedVRPClusteringRustEngine.sync_centroid_state!(centroids, @clusters, @vehicles)
+        @centroids = centroids
+        @number_of_clusters = @clusters.size
+
+        @strict_limitations = result['strict_limitations'].map do |limits|
+          limits.transform_keys(&:to_sym).transform_values(&:to_f)
+        end
+        @cut_limit = result['cut_limit'].map { |entry| { limit: entry['limit'].to_f } }
+        @balance_coeff = Array(result['balance_coeff'])
+      end
 
       def calculate_local_speeds
         # TODO: Following speed approximation is done with respect to a fixed depot

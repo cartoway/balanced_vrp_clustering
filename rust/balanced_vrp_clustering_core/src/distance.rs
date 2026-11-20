@@ -25,18 +25,12 @@ pub fn deg2rad(degree: f64) -> f64 {
 }
 
 pub fn euclidean_distance(loc_a: (f64, f64), loc_b: (f64, f64)) -> f64 {
-    if loc_a.0 == 0.0 && loc_b.0 == 0.0 {
-        return 0.0;
-    }
     let delta_lat = loc_a.0 - loc_b.0;
-    let delta_lon = (loc_a.1 - loc_b.1) * deg2rad((loc_a.0 + loc_b.0) / 2.0);
+    let delta_lon = (loc_a.1 - loc_b.1) * deg2rad((loc_a.0 + loc_b.0) / 2.0).cos();
     L * (delta_lat * delta_lat + delta_lon * delta_lon).sqrt()
 }
 
 pub fn flying_distance(loc_a: (f64, f64), loc_b: (f64, f64)) -> f64 {
-    if loc_a.0 == 0.0 || loc_b.0 == 0.0 {
-        return 0.0;
-    }
     if (loc_a.0 - loc_b.0).abs() < 30.0
         && loc_a.0.abs().max(loc_b.0.abs()) + (loc_a.1 - loc_b.1).abs() < 100.0
     {
@@ -52,8 +46,14 @@ pub fn flying_distance(loc_a: (f64, f64), loc_b: (f64, f64)) -> f64 {
 }
 
 pub fn matrix_distance(matrix: &[Vec<f64>], a_idx: usize, b_idx: usize) -> f64 {
-    let d = matrix[a_idx][b_idx];
-    let b_dist = matrix[b_idx][a_idx];
+    let Some(row_a) = matrix.get(a_idx) else {
+        return f64::INFINITY;
+    };
+    let Some(row_b) = matrix.get(b_idx) else {
+        return f64::INFINITY;
+    };
+    let d = *row_a.get(b_idx).unwrap_or(&f64::INFINITY);
+    let b_dist = *row_b.get(a_idx).unwrap_or(&f64::INFINITY);
     if d <= b_dist { d } else { b_dist }
 }
 

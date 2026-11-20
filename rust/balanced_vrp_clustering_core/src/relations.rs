@@ -17,7 +17,7 @@
 //
 
 use crate::types::Item;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 const LINKING_RELATIONS: &[&str] = &[
     "order",
@@ -31,15 +31,22 @@ const BINDING_RELATIONS: &[&str] = &["order", "same_route", "sequence", "same_ve
 pub fn connect_linked_items(
     items: &mut [Item],
     related_item_indices: &HashMap<String, Vec<Vec<usize>>>,
-) {
-    for relation in LINKING_RELATIONS {
-        if let Some(groups) = related_item_indices.get(*relation) {
-            for linked_indices in groups {
-                assert_eq!(
-                    linked_indices.len(),
-                    linked_indices.iter().collect::<std::collections::HashSet<_>>().len(),
-                    "Each relation group should contain only unique indices"
+) -> Result<(), String> {
+    for groups in related_item_indices.values() {
+        for linked_indices in groups {
+            let unique: HashSet<usize> = linked_indices.iter().copied().collect();
+            if linked_indices.len() != unique.len() {
+                return Err(
+                    "Each relation group of related_item_indices should contain only unique indices".into(),
                 );
+            }
+            for &ind in linked_indices {
+                if ind >= items.len() {
+                    return Err(format!(
+                        "related_item_indices contains out-of-range index {ind} (items.len()={})",
+                        items.len()
+                    ));
+                }
             }
         }
     }
@@ -57,7 +64,9 @@ pub fn connect_linked_items(
                     .iter()
                     .any(|&ind| items[ind].linked_next.is_some())
                 {
-                    panic!("A service should not appear in multiple non-binding linking relations");
+                    return Err(
+                        "A service should not appear in multiple non-binding linking relations".into(),
+                    );
                 }
                 linked_indices.push(linked_indices[0]);
                 for i in 0..linked_indices.len() - 1 {
@@ -118,6 +127,8 @@ pub fn connect_linked_items(
             }
         }
     }
+
+    Ok(())
 }
 
 /// Mirrors Ruby `do_forall_linked_items_of`

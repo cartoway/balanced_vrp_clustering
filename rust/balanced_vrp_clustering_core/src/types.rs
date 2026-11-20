@@ -158,10 +158,18 @@ pub struct ItemInput {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct CutLimitOutput {
+    pub limit: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct BuildOutput {
     pub iterations: usize,
     pub clusters: Vec<Vec<String>>,
     pub elapsed_ms: u64,
+    pub cut_limit: Vec<CutLimitOutput>,
+    pub balance_coeff: Vec<f64>,
+    pub strict_limitations: Vec<HashMap<String, f64>>,
 }
 
 #[derive(Debug, Clone)]

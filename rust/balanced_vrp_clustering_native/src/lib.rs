@@ -19,11 +19,20 @@
 use balanced_vrp_clustering_core::{build_from_input, InputConfig};
 use magnus::{function, prelude::*, Error, Ruby, RString};
 
+// ponytail: cap JSON payload size for FFI DoS resistance; tune with largest real clustering job.
+const MAX_JSON_BYTES: usize = 64 * 1024 * 1024;
+
 fn build_from_json(input: RString) -> Result<RString, Error> {
     let ruby = Ruby::get().expect("Ruby not initialized");
     let json_str = input
         .to_string()
         .map_err(|e| Error::new(ruby.exception_arg_error(), e.to_string()))?;
+    if json_str.len() > MAX_JSON_BYTES {
+        return Err(Error::new(
+            ruby.exception_arg_error(),
+            format!("JSON input too large: {} bytes (max {MAX_JSON_BYTES})", json_str.len()),
+        ));
+    }
 
     let config: InputConfig = serde_json::from_str(&json_str).map_err(|e| {
         Error::new(

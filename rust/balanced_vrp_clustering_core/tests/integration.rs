@@ -40,6 +40,31 @@ fn golden_tiny_builds() {
 }
 
 #[test]
+fn invalid_related_indices_returns_err() {
+    let json = r#"{
+        "seed": 1,
+        "cut_ratio": 1.0,
+        "max_iterations": 10,
+        "vehicles": [{"id": ["v1"], "depot": {"coordinates": [0, 0]}}],
+        "items": [{"id": "p1", "lat": 1.0, "lon": 2.0}],
+        "centroid_indices": [],
+        "related_item_indices": {"order": [[0, 0]]}
+    }"#;
+    let input: InputConfig = serde_json::from_str(json).expect("parse");
+    let err = build_from_input(&input).unwrap_err();
+    assert!(err.contains("unique indices"), "{err}");
+}
+
+#[test]
+fn flying_distance_at_equator_nonzero() {
+    use balanced_vrp_clustering_core::distance::{euclidean_distance, flying_distance};
+    let d = flying_distance((0.0, 10.0), (0.0, 10.1));
+    assert!(d > 0.0, "latitude 0.0 must not short-circuit distance");
+    let e = euclidean_distance((0.0, 10.0), (0.0, 10.1));
+    assert!(e > 0.0, "euclidean at equator must use cos-adjusted longitude");
+}
+
+#[test]
 fn parses_json_null_numeric_fields() {
     let json = r#"{
         "seed": 1,

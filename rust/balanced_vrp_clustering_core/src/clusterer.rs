@@ -25,6 +25,7 @@ use crate::limits::compute_limits;
 use crate::local_speed::calculate_local_speeds;
 use crate::relations::{connect_linked_items, do_forall_linked};
 use crate::rng::RubyRng;
+use crate::types::CutLimitOutput;
 use crate::types::{
     BuildOutput, Centroid, CentroidWeights, CutLimit, InputConfig, Item, Vehicle,
     INCOMPATIBILITY_DISTANCE_PENALTY,
@@ -186,7 +187,8 @@ impl Clusterer {
 
     pub fn build(mut self) -> Result<BuildOutput, String> {
         let started = Instant::now();
-        connect_linked_items(&mut self.items, &self.related_item_indices);
+        connect_linked_items(&mut self.items, &self.related_item_indices)
+            .map_err(|e| format!("invalid related_item_indices: {e}"))?;
 
         self.init_unit_symbols();
         self.init_item_defaults();
@@ -221,6 +223,13 @@ impl Clusterer {
             iterations: self.iteration,
             clusters,
             elapsed_ms: started.elapsed().as_millis() as u64,
+            cut_limit: self
+                .cut_limit
+                .iter()
+                .map(|c| CutLimitOutput { limit: c.limit })
+                .collect(),
+            balance_coeff: self.balance_coeff.clone(),
+            strict_limitations: self.strict_limitations.clone(),
         })
     }
 
@@ -414,8 +423,9 @@ impl Clusterer {
     fn distance_between(&self, item_idx: usize, centroid: &Centroid) -> f64 {
         let item = &self.items[item_idx];
         if let Some(ref matrix) = self.distance_matrix {
-            let a_idx = item.matrix_index.unwrap();
-            let b_idx = centroid.matrix_index.unwrap();
+            let (Some(a_idx), Some(b_idx)) = (item.matrix_index, centroid.matrix_index) else {
+                return f64::INFINITY;
+            };
             matrix_distance(matrix, a_idx, b_idx)
         } else {
             flying_distance((item.lat, item.lon), (centroid.lat, centroid.lon))
@@ -1287,6 +1297,29 @@ fn default_day_skills() -> Vec<String> {
         .collect()
 }
 
+const MAX_ITEMS: usize = 500_000;
+const MAX_VEHICLES: usize = 10_000;
+// ponytail: cap CPU burn on hostile JSON; raise if legitimate jobs need more iterations.
+const MAX_ITERATIONS: usize = 1_000_000;
+
 pub fn build_from_input(input: &InputConfig) -> Result<BuildOutput, String> {
+    if input.items.len() > MAX_ITEMS {
+        return Err(format!(
+            "too many items for clustering: {} (max {MAX_ITEMS})",
+            input.items.len()
+        ));
+    }
+    if input.vehicles.len() > MAX_VEHICLES {
+        return Err(format!(
+            "too many vehicles for clustering: {} (max {MAX_VEHICLES})",
+            input.vehicles.len()
+        ));
+    }
+    if input.max_iterations > MAX_ITERATIONS {
+        return Err(format!(
+            "max_iterations too large: {} (max {MAX_ITERATIONS})",
+            input.max_iterations
+        ));
+    }
     Clusterer::from_input(input).build()
 }

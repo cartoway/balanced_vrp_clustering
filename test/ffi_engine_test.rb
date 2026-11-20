@@ -81,14 +81,46 @@ class FfiEngineTest < Tests
     assert clusterer.cut_limit.all? { |entry| entry.key?(:limit) }
   end
 
-  def test_build_tolerates_nil_numeric_fields_in_items
+  def test_build_rejects_missing_coordinates
     skip 'Run: bundle exec rake native:compile' unless Ai4r::Clusterers::BalancedVRPClusteringRustEngine.available?
 
     clusterer, data_set = Instance.two_clusters_4_items
-    item = data_set.data_items.first
-    item[0] = nil
-    item[1] = nil
-    item[4][:duration_from_and_to_depot] = [nil, 10.0]
+    data_set.data_items.first[0] = nil
+
+    error = assert_raises(ArgumentError) do
+      clusterer.build(data_set, :visits, {}, 1.0, { seed: 42_424 })
+    end
+    assert_match(/latitude and longitude/, error.message)
+  end
+
+  def test_engine_rust_raises_when_native_missing
+    clusterer, data_set = Instance.two_clusters_4_items
+    engine = Ai4r::Clusterers::BalancedVRPClusteringRustEngine
+    engine.stub(:available?, false) do
+      error = assert_raises(ArgumentError) do
+        clusterer.build(data_set, :visits, {}, 1.0, { seed: 42_424, engine: :rust })
+      end
+      assert_match(/native extension/, error.message)
+    end
+  end
+
+  def test_rust_build_exports_balance_coeff
+    skip 'Run: bundle exec rake native:compile' unless Ai4r::Clusterers::BalancedVRPClusteringRustEngine.available?
+
+    clusterer, data_set = Instance.two_clusters_4_items
+    clusterer.build(data_set, :visits, {}, 1.0, { seed: 42_424 })
+
+    coeffs = clusterer.instance_variable_get(:@balance_coeff)
+    assert_equal clusterer.vehicles.size, coeffs.size
+    assert(coeffs.all? { |c| c.is_a?(Numeric) })
+  end
+
+  def test_build_allows_latitude_zero
+    skip 'Run: bundle exec rake native:compile' unless Ai4r::Clusterers::BalancedVRPClusteringRustEngine.available?
+
+    clusterer, data_set = Instance.two_clusters_4_items
+    data_set.data_items[0][0] = 0.0
+    data_set.data_items[1][0] = 0.01
 
     srand 42_424
     clusterer.build(data_set, :visits, {}, 1.0, { seed: 42_424 })

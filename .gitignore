@@ -2,6 +2,10 @@
 balanced_vrp_clustering-*.gem
 .byebug_history
 
+# Local publish secrets (see bin/push_gem)
+bin/.env
+bin/.env.*
+
 # Benchmark outputs (local only)
 benchmark/results/
 benchmark/regression/baselines/

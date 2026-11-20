@@ -20,20 +20,21 @@
 
 require 'rbconfig'
 
-ROOT = File.expand_path('..', __dir__)
-NATIVE_CRATE_DIR = File.join(ROOT, 'rust', 'balanced_vrp_clustering_native')
-LIB_DIR = File.join(ROOT, 'lib')
-DLEXT = RbConfig::CONFIG['DLEXT']
-SO_NAME = "balanced_vrp_clustering_native.#{DLEXT}"
+module BalancedVRPClusteringNativePaths
+  ROOT = File.expand_path('..', __dir__)
+  NATIVE_CRATE_DIR = File.join(ROOT, 'rust', 'balanced_vrp_clustering_native')
+  LIB_DIR = File.join(ROOT, 'lib')
+  DLEXT = RbConfig::CONFIG['DLEXT']
+  SO_NAME = "balanced_vrp_clustering_native.#{DLEXT}"
 
-# After gem install, rb_sys places the shared lib next to extconf (rust/.../crate).
-SEARCH_PATHS = [
-  File.join(LIB_DIR, SO_NAME),
-  File.join(NATIVE_CRATE_DIR, SO_NAME),
-  File.join(NATIVE_CRATE_DIR, 'target', 'release', SO_NAME)
-].freeze
+  SEARCH_PATHS = [
+    File.join(LIB_DIR, SO_NAME),
+    File.join(NATIVE_CRATE_DIR, SO_NAME),
+    File.join(NATIVE_CRATE_DIR, 'target', 'release', SO_NAME)
+  ].freeze
+end
 
-path = SEARCH_PATHS.find { |p| File.exist?(p) }
+path = BalancedVRPClusteringNativePaths::SEARCH_PATHS.find { |p| File.exist?(p) }
 raise LoadError, "balanced_vrp_clustering_native not built. Run: bundle exec rake native:compile" unless path
 
 require path

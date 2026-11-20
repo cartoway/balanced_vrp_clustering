@@ -21,6 +21,7 @@ Gem::Specification.new do |s|
   s.required_ruby_version = '>= 3.3.0'
 
   s.add_dependency 'activesupport'
+  s.add_dependency 'csv'
   s.add_dependency 'rake'
   s.add_dependency 'rb_sys', '~> 0.9.130'
 end
