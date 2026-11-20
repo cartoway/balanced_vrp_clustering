@@ -16,6 +16,7 @@
 // <http://www.gnu.org/licenses/agpl.html>
 //
 
+use balanced_vrp_clustering_core::distance::{euclidean_distance, flying_distance};
 use balanced_vrp_clustering_core::{build_from_input, InputConfig};
 use magnus::{function, prelude::*, Error, Ruby, RString};
 
@@ -58,10 +59,23 @@ fn available() -> bool {
     true
 }
 
+fn ffi_euclidean_distance(a_lat: f64, a_lon: f64, b_lat: f64, b_lon: f64) -> f64 {
+    euclidean_distance((a_lat, a_lon), (b_lat, b_lon))
+}
+
+fn ffi_flying_distance(a_lat: f64, a_lon: f64, b_lat: f64, b_lon: f64) -> f64 {
+    flying_distance((a_lat, a_lon), (b_lat, b_lon))
+}
+
 #[magnus::init]
 fn init(ruby: &Ruby) -> Result<(), Error> {
     let module = ruby.define_module("BalancedVRPClusteringNative")?;
     module.define_singleton_method("build_from_json", function!(build_from_json, 1))?;
     module.define_singleton_method("available?", function!(available, 0))?;
+    module.define_singleton_method(
+        "euclidean_distance",
+        function!(ffi_euclidean_distance, 4),
+    )?;
+    module.define_singleton_method("flying_distance", function!(ffi_flying_distance, 4))?;
     Ok(())
 }

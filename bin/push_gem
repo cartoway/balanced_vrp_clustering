@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Build and push the gem to RubyGems without pasting the API key in chat.
+#
+# Auth (first match wins):
+#   1. GEM_HOST_API_KEY already in the environment
+#   2. GEM_HOST_API_KEY from bin/.env (gitignored via bin/)
+#   3. existing `gem` credentials (~/.gem/credentials)
+#
+# Usage:
+#   echo 'GEM_HOST_API_KEY=rubygems_…' > bin/.env && chmod 600 bin/.env
+#   bin/push_gem
+#
+set -euo pipefail
+
+bin_dir="$(cd "$(dirname "$0")" && pwd)"
+root="$(cd "$bin_dir/.." && pwd)"
+cd "$root"
+
+gemspec=(*.gemspec)
+if [[ ${#gemspec[@]} -ne 1 ]]; then
+  echo "expected exactly one .gemspec in $root" >&2
+  exit 1
+fi
+
+version="$(ruby -e "puts Gem::Specification.load('${gemspec[0]}').version")"
+name="$(ruby -e "puts Gem::Specification.load('${gemspec[0]}').name")"
+gem_file="${name}-${version}.gem"
+
+load_dotenv() {
+  local file="$1" line key value
+  [[ -f "$file" ]] || return 0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    value="${value%$'\r'}"
+    value="${value#\"}"
+    value="${value%\"}"
+    value="${value#\'}"
+    value="${value%\'}"
+    if [[ "$key" == "GEM_HOST_API_KEY" && -z "${GEM_HOST_API_KEY:-}" ]]; then
+      export GEM_HOST_API_KEY="$value"
+    fi
+  done < "$file"
+}
+
+load_dotenv "$bin_dir/.env"
+
+if [[ -z "${GEM_HOST_API_KEY:-}" && ! -f "${HOME}/.gem/credentials" ]]; then
+  cat >&2 <<'EOF'
+No RubyGems credentials found.
+
+Set one of:
+  export GEM_HOST_API_KEY=rubygems_…
+  echo 'GEM_HOST_API_KEY=rubygems_…' > bin/.env && chmod 600 bin/.env
+  gem signin
+EOF
+  exit 1
+fi
+
+echo "Building ${gem_file}…"
+gem build "${gemspec[0]}"
+
+echo "Pushing ${gem_file}…"
+gem push "${gem_file}"
+echo "Done: https://rubygems.org/gems/${name}/versions/${version}"

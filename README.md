@@ -8,6 +8,8 @@ The public API still lives under the historical `Ai4r::` namespace (`Ai4r::Clust
 
 Requires **Ruby >= 3.3**. Ruby 3.2 and earlier are end-of-life and are not supported.
 
+See [CHANGELOG.md](CHANGELOG.md) when upgrading (prefer **0.4.3** on RubyGems; **0.4.2+** changes deterministic clustering results due to a distance fix aligned with the Ruby `Helper`).
+
 For production, use a patched release that includes the November 2026 security fixes for `Regexp` and `String` case conversion (at least **3.3.14**, **3.4.13**, or **4.0.10**). See the [Ruby security advisory](https://www.ruby-lang.org/en/news/2026/11/18/multiple-vulnerabilities-in-regexp-and-string/).
 
 # Gem generation (for contributors)

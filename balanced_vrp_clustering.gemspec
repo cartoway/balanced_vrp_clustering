@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'balanced_vrp_clustering'
-  s.version = '0.4.2'
+  s.version = '0.4.3'
   s.date = '2026-11-19'
   s.summary = 'Gem for clustering points of a given VRP.'
   s.authors = 'Cartoway'

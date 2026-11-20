@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    balanced_vrp_clustering (0.4.2)
+    balanced_vrp_clustering (0.4.3)
       activesupport
       csv
       rake
